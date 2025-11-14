@@ -38,16 +38,16 @@ import javax.inject.Inject;
 public class EventDispatcher {
 
     private final Context mContext;
-    private final TaskPanelTransitionCoordinator mTaskPanelTransitionCoordinator;
+    private final PanelTransitionCoordinator mPanelTransitionCoordinator;
 
     @Inject
     public EventDispatcher(Context context,
-            Lazy<TaskPanelTransitionCoordinator> taskPanelTransitionCoordinator) {
+            Lazy<PanelTransitionCoordinator> panelTransitionCoordinator) {
         mContext = context;
         if (isScalableUIEnabled()) {
-            mTaskPanelTransitionCoordinator = taskPanelTransitionCoordinator.get();
+            mPanelTransitionCoordinator = panelTransitionCoordinator.get();
         } else {
-            mTaskPanelTransitionCoordinator = null;
+            mPanelTransitionCoordinator = null;
         }
     }
 
@@ -80,11 +80,23 @@ public class EventDispatcher {
         if (!isScalableUIEnabled()) {
             throw new IllegalStateException("ScalableUI disabled - cannot execute transaction");
         }
-        mTaskPanelTransitionCoordinator.startTransition(getTransaction(event));
+        mPanelTransitionCoordinator.startTransition(getTransaction(event));
     }
 
     private boolean isScalableUIEnabled() {
         return scalableUi() && enableAutoTaskStackController()
                 && mContext.getResources().getBoolean(R.bool.config_enableScalableUI);
+    }
+
+    /**
+     * An interface representing an object that can produce {@link Event} and dispatch them.
+     *
+     * TODO(b/409615558): Create a broadcast receiver to receive event from other system components.
+     */
+    public interface EventProducer {
+        /**
+         * Sets the {@link EventDispatcher} that this producer should use to dispatch events.
+         */
+        void setEventDispatcher(EventDispatcher eventDispatcher);
     }
 }

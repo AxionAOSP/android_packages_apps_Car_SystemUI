@@ -150,8 +150,14 @@
         <item>com.android.cts.verifier</item>
     </string-array>
 
+    <!-- Specifies the component name of the home activity -->
+    <string name="config_homeComponentName" translatable="false">com.android.car.carlauncher/.CarLauncher</string>
+
     <!-- Specifies the component name of the app grid activity -->
     <string name="config_appGridComponentName" translatable="false">com.android.car.carlauncher/.AppGridActivity</string>
+
+    <!-- Specifies the component name of the AAOS Studio activity -->
+    <string name="config_aaosStudioComponentName" translatable="false">com.android.aaos.studio/.TokenActivity</string>
 
     <!--Percentage of the screen height, from the top, where the border between HVAC panel closing
         or opening, depending on where its handle bar is released after being dragged, would be
@@ -234,6 +240,16 @@
     <!-- 3 immersive based on bar control policy  -->
     <integer name="config_systemBarPersistency">1</integer>
 
+    <!-- Determines if the system bars should be forced into a particular system bar behavior when
+         the Setup Wizard is currently in progress. This config only takes effect if
+         config_remoteInsetsControllerControlsSystemBars is set to true and will supplement the
+         behavior of config_systemBarPersistency. -->
+    <!-- 0 disabled - will not modify config_systemBarPersistency behavior for SUW. -->
+    <!-- 1 immersive, force hide both bars for SUW -->
+    <!-- 2 immersive_with_nav, force show nav bar and hide status bar for SUW -->
+    <!-- 3 immersive_with_status, force show status bar and hide nav bar for SUW  -->
+    <integer name="config_systemBarSuwBehavior">0</integer>
+
     <!-- Determines the orientation of the status icon. -->
     <!-- 0 horizontal. -->
     <!-- 1 vertical -->
@@ -247,22 +263,6 @@
 
     <!-- Media blocking activity component name -->
     <string name="config_mediaBlockingActivity" translatable="false">com.android.car.media/.MediaBlockingActivity</string>
-
-    <!--
-        The list to define which activities the data subscription pop-up should not display
-        a message when they are launched
-    -->
-    <string-array translatable="false" name="config_dataSubscriptionBlockedActivitiesList">
-    </string-array>
-
-    <!--
-    The list to define which packages the data subscription pop-up should not display
-    a message when they are launched
-    -->
-    <string-array translatable="false" name="config_dataSubscriptionBlockedPackagesList">
-        <item>com.android.car.settings</item>
-        <item>com.android.car.carlauncher</item>
-    </string-array>
 
     <!--
        The devices that certain debug features should be shown on.
@@ -309,4 +309,13 @@
     -->
     <string-array name="config_default_activities" translatable="false">
     </string-array>
+
+    <!-- Enable toolkit for data subscription. -->
+    <bool name="config_enableDataSubscriptionToolkit">true</bool>
+
+    <!-- Setup and add safe area and toolbar per display on for Display Compat apps . -->
+    <bool name="config_enableSafeAreaAndToolbarPerDisplay">true</bool>
+
+    <!-- Figma file ID for the DCF file used to load system ui -->
+    <string name="config_scalableUiDcfFileId">cydzv1nh1pZBdFmZAbdFQU</string>
 </resources>

@@ -16,16 +16,26 @@
 package com.android.systemui.car.wm.scalableui.panel;
 
 import android.content.Context;
+import android.graphics.Rect;
 import android.util.Log;
-import android.view.LayoutInflater;
+import android.view.SurfaceControl;
 import android.view.View;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 
+import com.android.car.scalableui.manager.StateManager;
+import com.android.car.scalableui.model.PanelState;
+import com.android.car.scalableui.model.Variant;
+import com.android.car.scalableui.panel.DecorPanelController;
 import com.android.car.scalableui.panel.Panel;
+import com.android.systemui.car.wm.scalableui.EventDispatcher;
+import com.android.systemui.car.wm.scalableui.view.DecorPanelControllerBase;
 import com.android.wm.shell.automotive.AutoDecor;
 import com.android.wm.shell.automotive.AutoDecorManager;
+import com.android.wm.shell.automotive.AutoSurfaceTransaction;
+import com.android.wm.shell.automotive.AutoSurfaceTransactionFactory;
 import com.android.wm.shell.common.ShellExecutor;
 import com.android.wm.shell.shared.annotations.ExternalMainThread;
 
@@ -37,52 +47,71 @@ import dagger.assisted.AssistedInject;
  * A {@link AutoDecor} based implementation of a {@link Panel}.
  */
 public final class DecorPanel extends BasePanel {
-
-    private static final String ROLE_TYPE_LAYOUT = "layout";
     private static final String TAG = DecorPanel.class.getSimpleName();
 
     private final AutoDecorManager mAutoDecorManager;
     private final PanelUtils mPanelUtils;
     private final ShellExecutor mMainExecutor;
-    private AutoDecor mAutoDecor;
+    private final EventDispatcher mEventDispatcher;
+    private final AutoSurfaceTransactionFactory mAutoSurfaceTransactionFactory;
+    @VisibleForTesting
+    AutoDecor mAutoDecor;
 
+    @Nullable
     private View mDecorView;
+    @Nullable
+    DecorPanelController mDecorPanelController;
 
     @AssistedInject
-    public DecorPanel(@NonNull Context context,
+    public DecorPanel(
+            @NonNull Context context,
             AutoDecorManager autoDecorManager,
+            EventDispatcher eventDispatcher,
             PanelUtils panelUtils,
             @ExternalMainThread ShellExecutor mainExecutor,
-            @Assisted String id) {
+            AutoSurfaceTransactionFactory autoSurfaceTransactionFactory,
+            @Assisted String id
+    ) {
         super(context, id);
         mAutoDecorManager = autoDecorManager;
         mPanelUtils = panelUtils;
         mMainExecutor = mainExecutor;
+        mEventDispatcher = eventDispatcher;
+        mAutoSurfaceTransactionFactory = autoSurfaceTransactionFactory;
+    }
+
+    @NonNull
+    @Override
+    public Rect getSafeBounds() {
+        // no-op
+        return new Rect();
     }
 
     @Override
-    public void setRole(int role) {
-        if (getRole() == role) return;
-        super.setRole(role);
+    public void setSafeBounds(@NonNull Rect safeBounds) {
+        // no-op
+    }
+
+    @VisibleForTesting
+    @Nullable
+    View inflateDecorView() {
+        View view = getRole().getView(getContext());
+        return view != null ? view : initFromController();
     }
 
     @Nullable
-    private View inflateDecorView() {
-        int role = getRole();
-        String roleTypeName = getContext().getResources().getResourceTypeName(getRole());
-        LayoutInflater inflater = LayoutInflater.from(getContext());
-
-        switch (roleTypeName) {
-            case ROLE_TYPE_LAYOUT:
-                return inflater.inflate(role, null);
-            default:
-                Log.e(TAG, "Unsupported view type" + roleTypeName);
+    private View initFromController() {
+        mDecorPanelController = DecorPanelControllerBase.createDecorPanelController(
+                getContext(), getPanelControllerMetadata());
+        if (mDecorPanelController instanceof EventDispatcher.EventProducer eventProducer) {
+            eventProducer.setEventDispatcher(mEventDispatcher);
         }
-        return null;
+        return mDecorPanelController == null ? null : mDecorPanelController.getView();
     }
 
     @Override
     public void init() {
+        super.init();
         if (mPanelUtils.isUserUnlocked()) {
             reset();
         }
@@ -90,6 +119,7 @@ public final class DecorPanel extends BasePanel {
 
     @Override
     public void reset() {
+        super.reset();
         // Only modify the view and window on the main thread to prevent thread-based exceptions
         mMainExecutor.execute(() -> {
             // Remove existing autoDecor that holds the view.
@@ -98,16 +128,78 @@ public final class DecorPanel extends BasePanel {
             }
             // Reinflate and reattach the view.
             mDecorView = inflateDecorView();
-            if (mDecorView == null) return;
+            if (mDecorView == null) {
+                Log.e(TAG, "DecorView is null, fail to create AutoDecor, " + getPanelId());
+                return;
+            }
             mAutoDecor = mAutoDecorManager.createAutoDecor(mDecorView, getLayer(), getBounds(),
                     getPanelId());
             mAutoDecorManager.attachAutoDecorToDisplay(mAutoDecor, getDisplayId());
+
+            AutoSurfaceTransaction autoSurfaceTransaction = mAutoSurfaceTransactionFactory
+                    .createTransaction(RESET_TRANSACTION + getPanelId());
+
+            PanelState panelState = StateManager.getPanelState(getPanelId());
+            Variant currentVariant = panelState == null ? null : panelState.getCurrentVariant();
+
+            update(autoSurfaceTransaction, /* tx= */ null, currentVariant,
+                    /* updateChildren= */ true);
+            autoSurfaceTransaction.apply();
         });
+    }
+
+    @Override
+    public void refreshTheme() {
+        if (mDecorPanelController != null) {
+            mDecorPanelController.refreshTheme();
+        }
+        reset();
     }
 
     @Nullable
     public AutoDecor getAutoDecor() {
         return mAutoDecor;
+    }
+
+    @VisibleForTesting
+    void setDecorView(View view) {
+        mDecorView = view;
+    }
+
+    @Override
+    public void update(
+            @NonNull AutoSurfaceTransaction autoSurfaceTransaction,
+            @Nullable SurfaceControl.Transaction tx,
+            @Nullable Variant variant,
+            boolean updateChildren) {
+        if (getAutoDecor() == null) {
+            Log.e(TAG, "AutoDecor is null for " + getPanelId());
+            return;
+        }
+        logIfDebuggable("updateDecorPanelSurface:" + this);
+        Rect bounds = variant == null ? getBounds() : variant.getBounds();
+        autoSurfaceTransaction.setBounds(getAutoDecor(), bounds);
+        autoSurfaceTransaction.setVisibility(getAutoDecor(),
+                variant == null ? isVisible() : variant.isVisible());
+        autoSurfaceTransaction.setZOrder(getAutoDecor(),
+                variant == null ? getLayer() : variant.getLayer());
+        autoSurfaceTransaction.setCornerRadius(getAutoDecor(),
+                variant == null ? getCornerRadius() : variant.getCornerRadius());
+        autoSurfaceTransaction.setCrop(getAutoDecor(),
+                new Rect(0, 0, bounds.width(), bounds.height()));
+        //TODO(b/404959846): replace with autoSurfaceTransaction api if available.
+        if (mDecorView != null) {
+            mDecorView.setAlpha(variant == null ? getAlpha() : variant.getAlpha());
+            mDecorView.post(() -> {
+                int vis;
+                if (variant == null) {
+                    vis = isVisible() ? View.VISIBLE : View.GONE;
+                } else {
+                    vis = variant.isVisible() ? View.VISIBLE : View.GONE;
+                }
+                mDecorView.setVisibility(vis);
+            });
+        }
     }
 
     @AssistedFactory
@@ -120,9 +212,9 @@ public final class DecorPanel extends BasePanel {
     public String toString() {
         return "DecorPanel{"
                 + "mId='" + getPanelId() + '\''
+                + ", mBounds=" + getBounds()
                 + ", mLayer=" + getLayer()
                 + ", mRole=" + getRole()
-                + ", mBounds=" + getBounds()
                 + ", mIsVisible=" + isVisible()
                 + ", mAlpha=" + getAlpha()
                 + ", mDisplayId=" + getDisplayId()

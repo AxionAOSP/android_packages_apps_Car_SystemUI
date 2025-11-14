@@ -23,6 +23,7 @@ import android.content.Context;
 import android.hardware.SensorPrivacyManager;
 import android.window.DisplayAreaOrganizer;
 
+import com.android.car.datasubscription.DataSubscriptionMessageCreator;
 import com.android.keyguard.KeyguardViewController;
 import com.android.keyguard.dagger.KeyguardDisplayModule;
 import com.android.systemui.accessibility.AccessibilityModule;
@@ -30,6 +31,7 @@ import com.android.systemui.accessibility.data.repository.AccessibilityRepositor
 import com.android.systemui.biometrics.dagger.BiometricsModule;
 import com.android.systemui.car.CarDeviceProvisionedController;
 import com.android.systemui.car.CarDeviceProvisionedControllerImpl;
+import com.android.systemui.car.decor.CarPolicyModule;
 import com.android.systemui.car.decor.CarPrivacyChipDecorProviderFactory;
 import com.android.systemui.car.decor.CarPrivacyChipViewController;
 import com.android.systemui.car.displayconfig.ExternalDisplayController;
@@ -45,11 +47,15 @@ import com.android.systemui.dagger.GlobalRootComponent;
 import com.android.systemui.dagger.SysUISingleton;
 import com.android.systemui.dagger.qualifiers.Main;
 import com.android.systemui.decor.PrivacyDotDecorProviderFactory;
+import com.android.systemui.display.dagger.SystemUIDisplaySubcomponent;
 import com.android.systemui.dock.DockManager;
 import com.android.systemui.dock.DockManagerImpl;
 import com.android.systemui.doze.DozeHost;
 import com.android.systemui.media.muteawait.MediaMuteAwaitConnectionCli;
 import com.android.systemui.media.nearby.NearbyMediaDevicesManager;
+import com.android.systemui.Flags;
+import com.android.systemui.minmode.MinModeManager;
+import com.android.systemui.minmode.MinModeManagerImpl;
 import com.android.systemui.navigationbar.NoopNavigationBarControllerModule;
 import com.android.systemui.navigationbar.gestural.GestureModule;
 import com.android.systemui.plugins.qs.QSFactory;
@@ -69,7 +75,6 @@ import com.android.systemui.statusbar.NotificationLockscreenUserManagerImpl;
 import com.android.systemui.statusbar.NotificationShadeWindowController;
 import com.android.systemui.statusbar.events.PrivacyDotViewController;
 import com.android.systemui.statusbar.notification.headsup.HeadsUpEmptyImplModule;
-import com.android.systemui.statusbar.policy.AospPolicyModule;
 import com.android.systemui.statusbar.policy.DeviceProvisionedController;
 import com.android.systemui.statusbar.policy.IndividualSensorPrivacyController;
 import com.android.systemui.statusbar.policy.IndividualSensorPrivacyControllerImpl;
@@ -84,18 +89,20 @@ import dagger.Module;
 import dagger.Provides;
 
 import java.util.concurrent.Executor;
+import java.util.Optional;
 
 import javax.inject.Named;
+import javax.inject.Provider;
 
 @Module(
         includes = {
                 AccessibilityModule.class,
                 AccessibilityRepositoryModule.class,
                 ActivityWindowModule.class,
-                AospPolicyModule.class,
                 BiometricsModule.class,
                 BrightnessSliderModule.class,
                 CarMultiUserUtilsModule.class,
+                CarPolicyModule.class,
                 CarVolumeModule.class,
                 ExternalDisplayController.StartableModule.class,
                 DriveModeModule.class,
@@ -115,6 +122,9 @@ import javax.inject.Named;
                 ShadeEmptyImplModule.class,
                 SysUIUnfoldStartableModule.class,
                 WindowRootViewBlurNotSupportedModule.class
+        },
+        subcomponents = {
+                SystemUIDisplaySubcomponent.class
         }
 )
 abstract class CarSystemUIModule {
@@ -209,4 +219,21 @@ abstract class CarSystemUIModule {
     @Binds
     abstract PrivacyDotDecorProviderFactory providePrivacyDotDecorProviderFactory(
             CarPrivacyChipDecorProviderFactory carPrivacyDotDecorProviderFactory);
+
+    @Provides
+    static DataSubscriptionMessageCreator bindDataSubscriptionMessageCreator(
+            Context context) {
+        return new DataSubscriptionMessageCreator(context);
+    }
+
+    @Provides
+    @SysUISingleton
+    static Optional<MinModeManager> provideMinModeManager(
+            Provider<MinModeManagerImpl> minModeManagerProvider) {
+        if (Flags.enableMinmode()) {
+            return Optional.of(minModeManagerProvider.get());
+        } else {
+            return Optional.empty();
+        }
+    }
 }

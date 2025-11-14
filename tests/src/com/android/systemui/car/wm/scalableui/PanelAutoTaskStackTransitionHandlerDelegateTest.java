@@ -39,6 +39,7 @@ import com.android.systemui.CarSysuiTestCase;
 import com.android.systemui.car.CarSystemUiTest;
 import com.android.systemui.car.wm.scalableui.panel.PanelUtils;
 import com.android.systemui.car.wm.scalableui.panel.TaskPanelInfoRepository;
+import com.android.wm.shell.automotive.AutoLayoutManager;
 import com.android.wm.shell.automotive.AutoTaskStackController;
 import com.android.wm.shell.automotive.AutoTaskStackState;
 import com.android.wm.shell.automotive.AutoTaskStackTransaction;
@@ -63,22 +64,24 @@ public class PanelAutoTaskStackTransitionHandlerDelegateTest extends CarSysuiTes
     @Mock
     private AutoTaskStackController mAutoTaskStackController;
     @Mock
-    private TaskPanelTransitionCoordinator mTaskPanelTransitionCoordinator;
+    private PanelTransitionCoordinator mPanelTransitionCoordinator;
     @Mock
     private Transitions.TransitionFinishCallback mFinishCallback;
     @Mock
     private PanelUtils mPanelUtils;
     @Mock
     private TaskPanelInfoRepository mTaskPanelInfoRepository;
+    @Mock
+    private AutoLayoutManager mAutoLayoutManager;
 
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
-        when(mTaskPanelTransitionCoordinator.createAutoTaskStackTransaction(any(),
+        when(mPanelTransitionCoordinator.createAutoTaskStackTransaction(any(),
                 any())).thenReturn(new AutoTaskStackTransaction());
         mDelegate = new PanelAutoTaskStackTransitionHandlerDelegate(mContext,
-                mAutoTaskStackController, mTaskPanelTransitionCoordinator, mPanelUtils,
-                mTaskPanelInfoRepository);
+                mAutoTaskStackController, mPanelTransitionCoordinator, mPanelUtils,
+                mTaskPanelInfoRepository, mAutoLayoutManager);
     }
 
     @Test
@@ -113,7 +116,7 @@ public class PanelAutoTaskStackTransitionHandlerDelegateTest extends CarSysuiTes
         TransitionInfo info = mock(TransitionInfo.class);
         SurfaceControl.Transaction startTransaction = mock(SurfaceControl.Transaction.class);
         SurfaceControl.Transaction finishTransaction = mock(SurfaceControl.Transaction.class);
-        when(mTaskPanelTransitionCoordinator.playPendingAnimations(any(), any())).thenReturn(true);
+        when(mPanelTransitionCoordinator.playPendingAnimations(any(), any())).thenReturn(true);
 
         boolean result = mDelegate.startAnimation(
                 mock(IBinder.class),
@@ -132,7 +135,7 @@ public class PanelAutoTaskStackTransitionHandlerDelegateTest extends CarSysuiTes
         TransitionInfo info = mock(TransitionInfo.class);
         SurfaceControl.Transaction startTransaction = mock(SurfaceControl.Transaction.class);
         SurfaceControl.Transaction finishTransaction = mock(SurfaceControl.Transaction.class);
-        when(mTaskPanelTransitionCoordinator.playPendingAnimations(any(), any())).thenReturn(false);
+        when(mPanelTransitionCoordinator.playPendingAnimations(any(), any())).thenReturn(false);
 
         boolean result = mDelegate.startAnimation(
                 mock(IBinder.class),
@@ -153,7 +156,7 @@ public class PanelAutoTaskStackTransitionHandlerDelegateTest extends CarSysuiTes
                 false,
                 mock(SurfaceControl.Transaction.class));
 
-        verify(mTaskPanelTransitionCoordinator).stopRunningAnimations();
+        verify(mPanelTransitionCoordinator).stopRunningAnimations(any());
     }
 
     @Test
@@ -166,6 +169,6 @@ public class PanelAutoTaskStackTransitionHandlerDelegateTest extends CarSysuiTes
                 mock(IBinder.class),
                 mock(Transitions.TransitionFinishCallback.class));
 
-        verify(mTaskPanelTransitionCoordinator).stopRunningAnimations();
+        verify(mPanelTransitionCoordinator).stopRunningAnimations(any());
     }
 }

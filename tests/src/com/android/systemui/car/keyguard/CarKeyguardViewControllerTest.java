@@ -52,6 +52,7 @@ import com.android.systemui.car.CarSystemUiTest;
 import com.android.systemui.car.window.OverlayViewGlobalStateController;
 import com.android.systemui.car.window.SystemUIOverlayWindowController;
 import com.android.systemui.keyguard.ui.viewmodel.GlanceableHubToPrimaryBouncerTransitionViewModel;
+import com.android.systemui.keyguard.ui.viewmodel.PrimaryBouncerToDreamingTransitionViewModel;
 import com.android.systemui.keyguard.ui.viewmodel.PrimaryBouncerToGoneTransitionViewModel;
 import com.android.systemui.log.BouncerLogger;
 import com.android.systemui.settings.UserTracker;
@@ -63,6 +64,8 @@ import com.android.systemui.user.domain.interactor.SelectedUserInteractor;
 import com.android.systemui.util.concurrency.FakeExecutor;
 import com.android.systemui.util.kotlin.JavaAdapter;
 import com.android.systemui.util.time.FakeSystemClock;
+
+import kotlinx.coroutines.CoroutineDispatcher;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -103,6 +106,9 @@ public class CarKeyguardViewControllerTest extends CarSysuiTestCase {
     private KeyguardBouncerViewModel mKeyguardBouncerViewModel;
     @Mock
     private KeyguardBouncerComponent.Factory mKeyguardBouncerComponentFactory;
+    @Mock
+    private PrimaryBouncerToDreamingTransitionViewModel
+            mPrimaryBouncerToDreamingTransitionViewModel;
     @Mock
     private PrimaryBouncerToGoneTransitionViewModel mPrimaryBouncerToGoneTransitionViewModel;
     @Mock
@@ -146,6 +152,7 @@ public class CarKeyguardViewControllerTest extends CarSysuiTestCase {
                 mPrimaryBouncerInteractor,
                 mKeyguardSecurityModel,
                 mKeyguardBouncerViewModel,
+                mPrimaryBouncerToDreamingTransitionViewModel,
                 mPrimaryBouncerToGoneTransitionViewModel,
                 mGlanceableHubToPrimaryBouncerTransitionViewModel,
                 mKeyguardBouncerComponentFactory,
@@ -156,6 +163,7 @@ public class CarKeyguardViewControllerTest extends CarSysuiTestCase {
                 mock(SelectedUserInteractor.class),
                 Optional.of(mKeyguardSystemBarPresenter),
                 mock(StatusBarKeyguardViewManagerInteractor.class),
+                mock(CoroutineDispatcher.class),
                 mock(JavaAdapter.class)
         );
         mCarKeyguardViewController.inflate((ViewGroup) LayoutInflater.from(mContext).inflate(

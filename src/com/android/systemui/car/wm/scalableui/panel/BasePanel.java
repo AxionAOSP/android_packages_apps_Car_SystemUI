@@ -15,14 +15,23 @@
  */
 package com.android.systemui.car.wm.scalableui.panel;
 
+import static com.android.car.scalableui.model.Role.DEFAULT_ROLE;
+
 import android.content.Context;
 import android.graphics.Insets;
 import android.graphics.Rect;
 import android.os.Build;
+import android.util.Log;
+import android.view.SurfaceControl;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
+import com.android.car.scalableui.model.PanelControllerMetadata;
+import com.android.car.scalableui.model.Role;
+import com.android.car.scalableui.model.Variant;
 import com.android.car.scalableui.panel.Panel;
+import com.android.wm.shell.automotive.AutoSurfaceTransaction;
 
 /**
  * Abstract base class for implementing a {@link Panel}.
@@ -31,35 +40,42 @@ import com.android.car.scalableui.panel.Panel;
  */
 public abstract class BasePanel implements Panel {
     protected static final boolean DEBUG = Build.isDebuggable();
+    private static final String TAG = BasePanel.class.getSimpleName();
+    protected static final String RESET_TRANSACTION = "Reset : ";
+    protected static final String REFRESH_TRANSACTION = "Refresh : ";
 
     private final Context mContext;
     private int mLayer = -1;
 
-    private int mRole = 0;
-    private Rect mBounds = null;
+    @NonNull
+    private Role mRole;
+    @NonNull
+    private Rect mBounds = new Rect();
     private boolean mIsVisible;
-    private String mId;
+    private String mPanelId;
     private float mAlpha;
     private int mDisplayId;
     private int mCornerRadius;
     @NonNull
     private Insets mInsets = Insets.NONE;
+    @Nullable
+    private PanelControllerMetadata mPanelControllerMetadata;
 
-    public BasePanel(@NonNull Context context, String id) {
+    public BasePanel(@NonNull Context context, String panelId) {
         mContext = context;
-        mId = id;
+        mPanelId = panelId;
+        mRole = DEFAULT_ROLE;
     }
 
+    @NonNull
     public Context getContext() {
         return mContext;
     }
 
-    public int getRole() {
+    @Override
+    @NonNull
+    public Role getRole() {
         return mRole;
-    }
-
-    public String getId() {
-        return mId;
     }
 
     @Override
@@ -70,7 +86,7 @@ public abstract class BasePanel implements Panel {
     @Override
     @NonNull
     public String getPanelId() {
-        return mId;
+        return mPanelId;
     }
 
     @Override
@@ -129,6 +145,16 @@ public abstract class BasePanel implements Panel {
     }
 
     @Override
+    public void reset() {
+        logIfDebuggable("Reset panel " + getPanelId());
+    }
+
+    @Override
+    public void init() {
+        logIfDebuggable("Init panel " + getPanelId());
+    }
+
+    @Override
     public void setVisibility(boolean isVisible) {
         if (mIsVisible == isVisible) {
             return;
@@ -172,17 +198,81 @@ public abstract class BasePanel implements Panel {
     }
 
     @Override
-    public void setRole(int role) {
+    public void setRole(@NonNull Role role) {
         mRole = role;
     }
 
     @Override
-    public void setInsets(Insets insets) {
+    public void setInsets(@NonNull Insets insets) {
         mInsets = insets;
     }
 
     @Override
+    @NonNull
     public Insets getInsets() {
         return mInsets;
+    }
+
+    @Override
+    @Nullable
+    public PanelControllerMetadata getPanelControllerMetadata() {
+        return mPanelControllerMetadata;
+    }
+
+    /**
+     * Updates surface of the {@link BasePanel} based on the provided {@link Variant}.
+     *
+     * <p> if provided {@link Variant} is null, update the surface with the data from {@link Panel}
+     * itself.
+     *
+     * @param autoSurfaceTransaction The {@link AutoSurfaceTransaction} instance used to apply
+     *                               surface property changes. Must not be {@code null}.
+     * @param tx                     An optional {@link android.view.SurfaceControl.Transaction}.
+     *                               This parameter is currently not used in the method's body. It
+     *                               can be {@code null}.
+     * @param variant                The {@link Variant} configuration object that provides the
+     *                               desired properties (bounds, visibility, layer, corner radius,
+     *                               alpha) for the decor surface. Maybe {@code null}.
+     * @param updateChildren         Update the children components used in this panel, should only
+     *                               set to true on animationEnd or reset.
+     */
+    public abstract void update(
+            @NonNull AutoSurfaceTransaction autoSurfaceTransaction,
+            @Nullable SurfaceControl.Transaction tx,
+            @Nullable Variant variant,
+            boolean updateChildren);
+
+    /**
+     * Updates surface of the {@link BasePanel} based on the provided {@link Variant} without update
+     * children.
+     *
+     * <p> if provided {@link Variant} is null, update the surface with the data from {@link Panel}
+     * itself.
+     *
+     * @param autoSurfaceTransaction The {@link AutoSurfaceTransaction} instance used to apply
+     *                               surface property changes. Must not be {@code null}.
+     * @param tx                     An optional {@link android.view.SurfaceControl.Transaction}.
+     *                               This parameter is currently not used in the method's body. It
+     *                               can be {@code null}.
+     * @param variant                The {@link Variant} configuration object that provides the
+     *                               desired properties (bounds, visibility, layer, corner radius,
+     *                               alpha) for the decor surface. Maybe {@code null}.
+     */
+    public void update(
+            @NonNull AutoSurfaceTransaction autoSurfaceTransaction,
+            @Nullable SurfaceControl.Transaction tx,
+            @Nullable Variant variant) {
+        update(autoSurfaceTransaction, tx, variant, /* updateChildren= */ false);
+    }
+
+    public void setPanelControllerMetadata(
+            @Nullable PanelControllerMetadata panelControllerMetadata) {
+        mPanelControllerMetadata = panelControllerMetadata;
+    }
+
+    protected static void logIfDebuggable(String msg) {
+        if (DEBUG) {
+            Log.d(TAG, msg);
+        }
     }
 }

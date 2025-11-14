@@ -30,13 +30,22 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SmallTest;
 
 import com.android.systemui.CarSysuiTestCase;
+import com.android.systemui.ShellSyncExecutor;
 import com.android.systemui.car.CarServiceProvider;
 import com.android.systemui.car.CarSystemUiTest;
 import com.android.systemui.car.wm.scalableui.AutoTaskStackHelper;
 import com.android.systemui.car.wm.scalableui.EventDispatcher;
+import com.android.systemui.car.wm.scalableui.panel.controller.PanelControllerInitializer;
+import com.android.wm.shell.ShellTaskOrganizer;
+import com.android.wm.shell.automotive.AutoCaptionController;
+import com.android.wm.shell.automotive.AutoDecorManager;
+import com.android.wm.shell.automotive.AutoLayoutManager;
+import com.android.wm.shell.automotive.AutoSurfaceTransaction;
+import com.android.wm.shell.automotive.AutoSurfaceTransactionFactory;
 import com.android.wm.shell.automotive.AutoTaskStackController;
 import com.android.wm.shell.automotive.AutoTaskStackTransaction;
 import com.android.wm.shell.automotive.RootTaskStack;
+import com.android.wm.shell.common.ShellExecutor;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -47,10 +56,11 @@ import org.mockito.MockitoAnnotations;
 @CarSystemUiTest
 @RunWith(AndroidJUnit4.class)
 @SmallTest
-public class TaskPanelTest extends CarSysuiTestCase{
+public class TaskPanelTest extends CarSysuiTestCase {
     private static final String TASK_PANEL_ID = "TASK_PANEL_ID";
 
     private TaskPanel mTaskPanel;
+    private ShellExecutor mMainExecutor;
 
     @Mock
     private AutoTaskStackController mAutoTaskStackController;
@@ -59,9 +69,15 @@ public class TaskPanelTest extends CarSysuiTestCase{
     @Mock
     private AutoTaskStackHelper mAutoTaskStackHelper;
     @Mock
+    private AutoCaptionController mAutoCaptionController;
+    @Mock
+    private ShellTaskOrganizer mShellTaskOrganizer;
+    @Mock
     private TaskPanel.Factory mFactory;
     @Mock
     private RootTaskStack mRootTaskStack;
+    @Mock
+    private AutoDecorManager mAutoDecorManager;
     @Mock
     private CarActivityManager mCarActivityManager;
     @Mock
@@ -70,14 +86,28 @@ public class TaskPanelTest extends CarSysuiTestCase{
     private TaskPanelInfoRepository mTaskPanelInfoRepository;
     @Mock
     private EventDispatcher mEventDispatcher;
+    @Mock
+    private PanelControllerInitializer mPanelControllerInitializer;
+    @Mock
+    private AutoLayoutManager mAutoLayoutManager;
+    @Mock
+    AutoSurfaceTransactionFactory mAutoSurfaceTransactionFactory;
+    @Mock
+    private AutoSurfaceTransaction mAutoSurfaceTransaction;
 
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
+        mMainExecutor = new ShellSyncExecutor();
         mTaskPanel = new TaskPanel(mAutoTaskStackController, mContext, mCarServiceProvider,
-                mAutoTaskStackHelper, mPanelUtils, mTaskPanelInfoRepository, mEventDispatcher,
-                TASK_PANEL_ID);
+                mAutoTaskStackHelper, mShellTaskOrganizer, mAutoCaptionController, mPanelUtils,
+                mTaskPanelInfoRepository, mAutoDecorManager, mEventDispatcher,
+                mPanelControllerInitializer, mAutoLayoutManager, mMainExecutor,
+                mAutoSurfaceTransactionFactory, TASK_PANEL_ID);
         when(mFactory.create(any())).thenReturn(mTaskPanel);
+
+        when(mAutoSurfaceTransactionFactory.createTransaction(any())).thenReturn(
+                mAutoSurfaceTransaction);
     }
 
     @Test

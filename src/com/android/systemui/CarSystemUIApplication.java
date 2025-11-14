@@ -26,7 +26,6 @@ import android.content.Context;
 import android.content.res.Configuration;
 import android.os.Bundle;
 import android.os.UserHandle;
-import android.view.ContextThemeWrapper;
 import android.view.Display;
 import android.view.WindowManager;
 
@@ -66,6 +65,12 @@ public class CarSystemUIApplication extends SystemUIApplication {
     }
 
     @Override
+    public void onConfigurationChanged(@NonNull Configuration newConfig) {
+        Token.applyOemTokenStyle(this);
+        super.onConfigurationChanged(newConfig);
+    }
+
+    @Override
     protected boolean shouldStartSystemUserServices() {
         if (mIsVisibleBackgroundUserSysUI) {
             // visible background user SystemUI instances should start the same services as the
@@ -88,29 +93,45 @@ public class CarSystemUIApplication extends SystemUIApplication {
 
     @Override
     public void attachBaseContext(Context base) {
-        Context context = Token.createOemStyledContext(base);
-        context.getTheme().applyStyle(R.style.CarSystemUIThemeOverlay, true);
-        super.attachBaseContext(context);
+        Token.applyOemTokenStyle(base);
+        base.getTheme().applyStyle(R.style.CarSystemUIThemeOverlay, true);
+        super.attachBaseContext(base);
     }
 
     @Override
+    @NonNull
     public Context createContextAsUser(UserHandle user, @CreatePackageOptions int flags) {
         Context context = super.createContextAsUser(user, flags);
-        return new ContextThemeWrapper(context, this.getTheme());
+        context.getTheme().setTo(getTheme());
+        context.getTheme().rebase();
+        return context;
     }
 
     @Override
     @NonNull
     public Context createWindowContext(@WindowManager.LayoutParams.WindowType int type,
-        @Nullable Bundle options) {
+            @Nullable Bundle options) {
         Context context = super.createWindowContext(type, options);
-        return new ContextThemeWrapper(context, this.getTheme());
+        context.getTheme().setTo(getTheme());
+        context.getTheme().rebase();
+        return context;
+    }
+
+    @Override
+    @NonNull
+    public Context createWindowContext(@NonNull Display display, int type,
+            @Nullable Bundle options) {
+        Context context = super.createWindowContext(display, type, options);
+        context.getTheme().setTo(getTheme());
+        context.getTheme().rebase();
+        return context;
     }
 
     @Override
     public Context createConfigurationContext(Configuration overrideConfiguration) {
         Context context = super.createConfigurationContext(overrideConfiguration);
-        return new ContextThemeWrapper(context, this.getTheme());
+        context.getTheme().setTo(getTheme());
+        context.getTheme().rebase();
+        return context;
     }
-
 }
