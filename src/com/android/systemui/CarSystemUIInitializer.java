@@ -16,7 +16,7 @@
 
 package com.android.systemui;
 
-import static com.android.systemui.car.Flags.daviewBasedWindowing;
+
 
 import android.content.Context;
 import android.os.Process;
@@ -53,7 +53,9 @@ public class CarSystemUIInitializer extends SystemUIInitializer {
                                 : Optional.empty())
                 .setScalableUIWMInitializer(carWm.getScalableUIWMInitializer())
                 .setTaskPanelInfoRepository(carWm.getTaskPanelInfoRepository())
-                .setScalableUIEventDispatcher(carWm.getScalableUIEventDispatcher());
+                .setScalableUIEventDispatcher(carWm.getScalableUIEventDispatcher())
+                .setSystemUiWindowProvider(carWm.getSystemUiWindowProvider())
+                .setSystemUiConfigurationProvider(carWm.getSystemUiConfigurationProvider());
     }
 
     private void initWmComponents(CarWMComponent carWm) {
@@ -62,9 +64,6 @@ public class CarSystemUIInitializer extends SystemUIInitializer {
         if (Process.myUserHandle().isSystem()) {
             carWm.getCarSystemUIProxy();
             carWm.getRemoteCarTaskViewTransitions();
-            if (daviewBasedWindowing()) {
-                carWm.getDaViewTransitions();
-            }
         }
     }
 }

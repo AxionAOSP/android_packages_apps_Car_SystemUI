@@ -21,6 +21,7 @@ import static com.android.systemui.car.users.CarSystemUIUserUtil.isSecondaryMUMD
 
 import android.content.Context;
 import android.graphics.Rect;
+import android.os.UserManager;
 import android.util.SparseArray;
 import android.window.DisplayAreaInfo;
 
@@ -28,6 +29,7 @@ import com.android.systemui.R;
 import com.android.wm.shell.RootTaskDisplayAreaOrganizer;
 import com.android.wm.shell.ShellTaskOrganizer;
 import com.android.wm.shell.automotive.AutoCaptionController;
+import com.android.wm.shell.automotive.AutoLayoutManager;
 import com.android.wm.shell.common.DisplayController;
 
 /**
@@ -44,18 +46,22 @@ public class AutoCaptionPerDisplayInitializer implements
     private final RootTaskDisplayAreaOrganizer mRootTaskDisplayAreaOrganizer;
     private final SparseArray<RootTaskDisplayAreaOrganizer.RootTaskDisplayAreaListener>
             mDisplayIdToListenerMap = new SparseArray<>();
+    private final AutoLayoutManager mAutoLayoutManager;
 
     public AutoCaptionPerDisplayInitializer(
             Context context,
             ShellTaskOrganizer shellTaskOrganizer,
             AutoCaptionController autoCaptionController,
             DisplayController displayController,
-            RootTaskDisplayAreaOrganizer rootTaskDisplayAreaOrganizer) {
+            RootTaskDisplayAreaOrganizer rootTaskDisplayAreaOrganizer,
+            AutoLayoutManager autoLayoutManager) {
         mAutoCaptionController = autoCaptionController;
         mAutoCaptionBarViewFactoryImpl =
                 new AutoCaptionBarViewFactoryImpl(context, shellTaskOrganizer);
+        // TODO(b/443340830): enable safe region for mumd
         mEnableSafeAreaAndToolbarPerDisplay = context.getResources().getBoolean(
-                R.bool.config_enableSafeAreaAndToolbarPerDisplay);
+                R.bool.config_enableSafeAreaAndToolbarPerDisplay)
+                && !UserManager.isVisibleBackgroundUsersEnabled();
         mSafeRegion = new Rect(
                 context.getResources().getDimensionPixelSize(R.dimen.safe_region_left),
                 context.getResources().getDimensionPixelSize(R.dimen.safe_region_top),
@@ -69,6 +75,7 @@ public class AutoCaptionPerDisplayInitializer implements
                 context.getResources().getDimensionPixelSize(R.dimen.caption_region_bottom)
         );
         mRootTaskDisplayAreaOrganizer = rootTaskDisplayAreaOrganizer;
+        mAutoLayoutManager = autoLayoutManager;
         if (!displayCompatibilityAutoDecorSafeRegion() || !mEnableSafeAreaAndToolbarPerDisplay) {
             return;
         }
@@ -97,7 +104,8 @@ public class AutoCaptionPerDisplayInitializer implements
         if (listener != null) {
             mRootTaskDisplayAreaOrganizer.unregisterListener(listener);
         }
-        mAutoCaptionController.removeSafeRegionAndCaptionRegion(displayId);
+        mAutoCaptionController.removeCaptionRegion(displayId);
+        mAutoLayoutManager.setOrUpdateSafeRegion(displayId, mSafeRegion);
     }
 
     /**
@@ -111,8 +119,8 @@ public class AutoCaptionPerDisplayInitializer implements
             if (displayAreaInfo == null) {
                 return;
             }
-            mAutoCaptionController.setSafeRegionAndCaptionRegion(displayAreaInfo.displayId,
-                    mSafeRegion,
+            mAutoLayoutManager.setOrUpdateSafeRegion(displayAreaInfo.displayId, mSafeRegion);
+            mAutoCaptionController.setCaptionRegion(displayAreaInfo.displayId,
                     mCaptionRegion,
                     mAutoCaptionBarViewFactoryImpl
             );

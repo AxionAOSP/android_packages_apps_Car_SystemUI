@@ -32,9 +32,11 @@ import androidx.test.filters.SmallTest;
 
 import com.android.systemui.CarSysuiTestCase;
 import com.android.systemui.car.CarSystemUiTest;
+import com.android.systemui.car.wm.CarWMUserHelper;
 import com.android.wm.shell.common.DisplayController;
 import com.android.wm.shell.common.DisplayInsetsController;
 import com.android.wm.shell.common.DisplayLayout;
+import com.android.wm.shell.sysui.ShellController;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -62,6 +64,10 @@ public class DisplaySystemBarsControllerTest extends CarSysuiTestCase {
     private DisplayInsetsController mDisplayInsetsController;
     @Mock
     private Handler mHandler;
+    @Mock
+    private CarWMUserHelper mUserHelper;
+    @Mock
+    private ShellController mShellController;
 
     @Before
     public void setUp() {
@@ -74,13 +80,15 @@ public class DisplaySystemBarsControllerTest extends CarSysuiTestCase {
                 mIWindowManager,
                 mDisplayController,
                 mDisplayInsetsController,
-                mHandler
+                mHandler,
+                mUserHelper,
+                mShellController
         );
     }
 
     @Test
     public void onDisplayAdded_loadsBarControlPolicyFilters() {
-        String text = "sample text";
+        String text = "immersive.full=+sample.app";
         Settings.Global.putString(
                 mContext.getContentResolver(),
                 CarSettings.Global.SYSTEM_BAR_VISIBILITY_OVERRIDE,
@@ -89,6 +97,6 @@ public class DisplaySystemBarsControllerTest extends CarSysuiTestCase {
 
         mController.onDisplayAdded(DISPLAY_ID);
 
-        assertThat(BarControlPolicy.sSettingValue).isEqualTo(text);
+        assertThat(mController.getBarPolicyString()).isEqualTo(text);
     }
 }

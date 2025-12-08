@@ -20,6 +20,10 @@ import android.app.ActivityManager;
 import android.content.ComponentName;
 import android.util.ArraySet;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
+
 import com.android.car.scalableui.panel.Panel;
 import com.android.car.scalableui.panel.PanelPool;
 import com.android.systemui.dagger.qualifiers.UiBackground;
@@ -41,9 +45,18 @@ public class TaskPanelInfoRepository {
     @GuardedBy("mLock")
     private final Map<String, LinkedHashMap<Integer, ActivityManager.RunningTaskInfo>>
             mPanelTaskMap = new HashMap<>();
+
+    // Special map to keep track of the last running task on a panel that is now empty for the
+    // purpose of restart
+    // TODO(b/440364117): remove once task ordering is consistent
+    @GuardedBy("mLock")
+    private final Map<String, ActivityManager.RunningTaskInfo>
+            mLastVanishedTaskInfo = new HashMap<>();
+
     @GuardedBy("mLock")
     private final Set<TaskPanelChangeListener> mListeners = new ArraySet<>();
     private final Executor mUiBackgroundExecutor;
+    private final PanelPool mPanelPool;
 
     @GuardedBy("mLock")
     private boolean mHasPendingTaskChanges = false;
@@ -51,6 +64,13 @@ public class TaskPanelInfoRepository {
     @Inject
     public TaskPanelInfoRepository(@UiBackground Executor executor) {
         mUiBackgroundExecutor = executor;
+        mPanelPool = PanelPool.getInstance();
+    }
+
+    @VisibleForTesting
+    TaskPanelInfoRepository(Executor executor, PanelPool panelPool) {
+        mUiBackgroundExecutor = executor;
+        mPanelPool = panelPool;
     }
 
     /**
@@ -146,7 +166,7 @@ public class TaskPanelInfoRepository {
      * Query if a specific panel is currently visible.
      */
     private boolean isPanelVisible(String panelId) {
-        Panel panel = PanelPool.getInstance().getPanel(panelId);
+        Panel panel = mPanelPool.getPanel(panelId);
         if (panel == null) {
             return false;
         }
@@ -160,6 +180,10 @@ public class TaskPanelInfoRepository {
             }
             mPanelTaskMap.get(panelId).put(taskInfo.taskId, taskInfo);
             mHasPendingTaskChanges = true;
+
+            if (!mPanelTaskMap.get(panelId).isEmpty()) {
+                mLastVanishedTaskInfo.remove(panelId);
+            }
         }
     }
 
@@ -176,6 +200,10 @@ public class TaskPanelInfoRepository {
                     && isTaskVisible(taskInfo)) {
                 mHasPendingTaskChanges = true;
             }
+
+            if (!mPanelTaskMap.get(panelId).isEmpty()) {
+                mLastVanishedTaskInfo.remove(panelId);
+            }
         }
     }
 
@@ -190,6 +218,10 @@ public class TaskPanelInfoRepository {
                 return;
             }
             mHasPendingTaskChanges = true;
+
+            if (mPanelTaskMap.get(panelId).isEmpty()) {
+                mLastVanishedTaskInfo.put(panelId, removed);
+            }
         }
     }
 
@@ -211,6 +243,17 @@ public class TaskPanelInfoRepository {
 
     private boolean isTaskVisible(ActivityManager.RunningTaskInfo task) {
         return task.isVisible && task.isRunning && !task.isSleeping;
+    }
+
+    // TODO(b/440364117): remove once task ordering is consistent
+    @Nullable
+    ActivityManager.RunningTaskInfo getLastTopTaskOnPanel(@NonNull String panelId) {
+        synchronized (mLock) {
+            if (mPanelTaskMap.containsKey(panelId) && !mPanelTaskMap.get(panelId).isEmpty()) {
+                return mPanelTaskMap.get(panelId).lastEntry().getValue();
+            }
+            return mLastVanishedTaskInfo.get(panelId);
+        }
     }
 
     public interface TaskPanelChangeListener {
